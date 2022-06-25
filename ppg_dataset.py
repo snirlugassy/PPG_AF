@@ -92,11 +92,9 @@ class PPGDataset(Dataset):
             rrs = as_strided(rrs,shape=(len(rrs)//config.RR_WINDOW_SIZE, config.RR_WINDOW_SIZE))
             gts = as_strided(gts,shape=(len(gts)//config.RR_WINDOW_SIZE, config.RR_WINDOW_SIZE))
 
-            prec = 0
             for i in range(rrs.shape[0]):
                 # Filtering / Masking ignorance should go here
-                self.rr_intervals.append((rrs[i], gts[i], prec, subject))
-                prec += 1
+                self.rr_intervals.append((rrs[i], max(gts[i]), i, subject))
 
                 # for j in range(3):
                 #     start_idx = window_size*i + sub_window_size*j
