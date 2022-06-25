@@ -14,17 +14,7 @@ from heartpy.peakdetection import detect_peaks, fit_peaks
 
 from numpy.lib.stride_tricks import as_strided
 
-RR_WINDOW_SIZE = 60
-
-FS = 128
-DFS = 50
-
-AF = 1
-NON_AF = 0
-
-LOW_FREQ_FILTER = (30 / 60)
-HI_FREQ_FILTER = (240 / 60)
-
+import config
 
 class PPGDataset(Dataset):
     def __init__(self, data_path, freq):
@@ -64,7 +54,7 @@ class PPGDataset(Dataset):
     #     return _data['data']['physiosignal']['ppg'][chr(ord('a') + channel)]['signal']
 
     def bandpass_filter(self, x, filter_order=2):
-        return hp.filter_signal(x, [LOW_FREQ_FILTER, HI_FREQ_FILTER], sample_rate=self.freq, order=filter_order, filtertype='bandpass')
+        return hp.filter_signal(x, [config.LOW_FREQ_FILTER, config.HI_FREQ_FILTER], sample_rate=self.freq, order=filter_order, filtertype='bandpass')
 
     def get_ppg_signal(self, pid, filter=True):
         signal_file = os.path.join(self.data_path, f'{pid}.mat')
@@ -77,7 +67,7 @@ class PPGDataset(Dataset):
         gt_file = os.path.join(self.data_path, f'{pid}_ground_truth.mat')
         _data = scipy.io.loadmat(gt_file, matlab_compatible=True, simplify_cells=True)
         _gt = _data['disease_label']
-        return (_gt[:,1:] == AF).flatten().astype(float)
+        return (_gt[:,1:] == config.AF).flatten().astype(float)
 
     def process_signals(self):
         window_size = 30 * self.freq
@@ -90,8 +80,8 @@ class PPGDataset(Dataset):
             gts = []
             for i in range(len(gt)):
                 window = sig[window_size*i:window_size*(i+1)]
-                rol_mean = rolling_mean(window, windowsize=1, sample_rate=DFS)
-                wd = detect_peaks(window, rol_mean, ma_perc=20, sample_rate=DFS)
+                rol_mean = rolling_mean(window, windowsize=1, sample_rate=config.DFS)
+                wd = detect_peaks(window, rol_mean, ma_perc=20, sample_rate=config.DFS)
                 rr = wd['RR_list']
                 rrs.append(rr)
                 gts.append(np.ones_like(rr) * gt[i])
@@ -99,8 +89,8 @@ class PPGDataset(Dataset):
             rrs = np.hstack(rrs)
             gts = np.hstack(gts)
 
-            rrs = as_strided(rrs,shape=(len(rrs)//RR_WINDOW_SIZE, RR_WINDOW_SIZE))
-            gts = as_strided(gts,shape=(len(gts)//RR_WINDOW_SIZE, RR_WINDOW_SIZE))
+            rrs = as_strided(rrs,shape=(len(rrs)//config.RR_WINDOW_SIZE, config.RR_WINDOW_SIZE))
+            gts = as_strided(gts,shape=(len(gts)//config.RR_WINDOW_SIZE, config.RR_WINDOW_SIZE))
 
             prec = 0
             for i in range(rrs.shape[0]):
