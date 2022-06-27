@@ -10,17 +10,21 @@ from torch.utils.data import Dataset
 import heartpy as hp
 from heartpy.exceptions import BadSignalWarning
 from heartpy.datautils import rolling_mean
-from heartpy.peakdetection import detect_peaks, fit_peaks
+from heartpy.peakdetection import detect_peaks, fit_peaks, calc_rr
 
 from numpy.lib.stride_tricks import as_strided
 
+from elgendi_ppg_peak_detection import elegendi_ppg_findpeaks
 import config
 
 class PPGDataset(Dataset):
-    def __init__(self, data_path, freq):
+    def __init__(self, data_path, freq, peak_detector='heartpy'):
         self.freq = freq
         self.data_path = data_path
         data_files = os.listdir(data_path)
+        self.peak_detector = peak_detector
+        if peak_detector not in ['heartpy', 'elgendi']:
+            self.peak_detector = 'heartpy'
 
         # File discovery
         self.subjects = {f[:4] for f in data_files if f[:4].isdigit()}
@@ -80,9 +84,16 @@ class PPGDataset(Dataset):
             gts = []
             for i in range(len(gt)):
                 window = sig[window_size*i:window_size*(i+1)]
-                rol_mean = rolling_mean(window, windowsize=1, sample_rate=config.DFS)
-                wd = detect_peaks(window, rol_mean, ma_perc=20, sample_rate=config.DFS)
-                rr = wd['RR_list']
+                if self.peak_detector == 'elgendi':
+                    try:
+                        _peaks = elegendi_ppg_findpeaks(window, sampling_rate=config.DFS, )['PPG_Peaks']
+                        rr = calc_rr(_peaks, sample_rate=config.DFS)['RR_list']
+                    except:
+                        rr = np.array([])
+                else:
+                    rol_mean = rolling_mean(window, windowsize=1, sample_rate=config.DFS)
+                    wd = detect_peaks(window, rol_mean, ma_perc=20, sample_rate=config.DFS)
+                    rr = wd['RR_list']
                 rrs.append(rr)
                 gts.append(np.ones_like(rr) * gt[i])
             
